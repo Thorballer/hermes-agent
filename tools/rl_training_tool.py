@@ -68,10 +68,18 @@ def _ensure_logs_dir():
 # Locked Configuration (Infrastructure Settings)
 # ============================================================================
 
+# Tinker base model for RL training.
+#
+# Single source of truth: the tokenizer used by the environment and the model
+# served by the training inference server must always be the same checkpoint.
+# Qwen/Qwen3-8B retires on 2026-12-14; its successor Qwen/Qwen3.5-9B is
+# supported through at least March 2027.
+TINKER_BASE_MODEL = "Qwen/Qwen3.5-9B"
+
 # These fields cannot be changed by the model - they're tuned for our infrastructure
 LOCKED_FIELDS = {
     "env": {
-        "tokenizer_name": "Qwen/Qwen3-8B",
+        "tokenizer_name": TINKER_BASE_MODEL,
         "rollout_server_url": "http://localhost:8000",
         "use_wandb": True,
         "max_token_length": 8192,
@@ -85,7 +93,7 @@ LOCKED_FIELDS = {
     },
     "openai": [
         {
-            "model_name": "Qwen/Qwen3-8B",
+            "model_name": TINKER_BASE_MODEL,
             "base_url": "http://localhost:8001/v1",
             "api_key": "x",
             "weight": 1.0,

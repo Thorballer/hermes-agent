@@ -9,7 +9,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tools.rl_training_tool import RunState, _stop_training_run
+from tools.rl_training_tool import (
+    LOCKED_FIELDS,
+    TINKER_BASE_MODEL,
+    RunState,
+    _stop_training_run,
+)
 
 
 def _make_run_state(**overrides) -> RunState:
@@ -140,3 +145,18 @@ class TestStopTrainingRunStatus:
         state = _make_run_state()
         _stop_training_run(state)  # should not raise
         assert state.status == "pending"
+
+
+class TestLockedBaseModel:
+    """The tokenizer and the training inference server must name one model."""
+
+    def test_tokenizer_and_model_name_agree(self):
+        env_model = LOCKED_FIELDS["env"]["tokenizer_name"]
+        server_model = LOCKED_FIELDS["openai"][0]["model_name"]
+        assert env_model == server_model == TINKER_BASE_MODEL
+
+    def test_base_model_is_not_a_retired_checkpoint(self):
+        """Qwen/Qwen3-8B retires 2026-12-14 (Tinker model retirements)."""
+        assert TINKER_BASE_MODEL == "Qwen/Qwen3.5-9B"
+        assert LOCKED_FIELDS["env"]["tokenizer_name"] != "Qwen/Qwen3-8B"
+        assert LOCKED_FIELDS["openai"][0]["model_name"] != "Qwen/Qwen3-8B"
