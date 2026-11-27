@@ -1,15 +1,22 @@
-"""Tests for rl_training_tool.py — file handle lifecycle and cleanup.
+"""Tests for rl_training_tool.py — file handle lifecycle, cleanup, and locked config.
 
-Verifies that _stop_training_run properly closes log file handles,
-terminates processes, and handles edge cases on failure paths.
-Inspired by PR #715 (0xbyt4).
+The first half verifies that _stop_training_run properly closes log file
+handles, terminates processes, and handles edge cases on failure paths
+(inspired by PR #715, 0xbyt4). The second half pins the invariant that the
+tokenizer and the training inference server always name the same base model,
+so a model migration cannot half-land.
 """
 
 from unittest.mock import MagicMock
 
 import pytest
 
-from tools.rl_training_tool import RunState, _stop_training_run
+from tools.rl_training_tool import (
+    LOCKED_FIELDS,
+    TINKER_BASE_MODEL,
+    RunState,
+    _stop_training_run,
+)
 
 
 def _make_run_state(**overrides) -> RunState:
@@ -140,3 +147,22 @@ class TestStopTrainingRunStatus:
         state = _make_run_state()
         _stop_training_run(state)  # should not raise
         assert state.status == "pending"
+
+
+class TestLockedBaseModel:
+    """The tokenizer and the training server must always name the same base model.
+
+    Extracting the literal into TINKER_BASE_MODEL is only worth anything if the
+    two call sites stay wired to it — a half-migrated pair (tokenizer on one
+    model, inference server on another) trains against mismatched token ids.
+    """
+
+    def test_env_and_openai_sections_name_the_same_model(self):
+        assert LOCKED_FIELDS["env"]["tokenizer_name"] == TINKER_BASE_MODEL
+        assert LOCKED_FIELDS["openai"][0]["model_name"] == TINKER_BASE_MODEL
+
+    def test_base_model_is_a_qualified_model_id(self):
+        # A bare name would be resolved differently by the tokenizer download
+        # path and by sglang, so require the "org/name" form.
+        assert "/" in TINKER_BASE_MODEL
+        assert TINKER_BASE_MODEL == TINKER_BASE_MODEL.strip()
